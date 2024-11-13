@@ -1,9 +1,10 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 
 const generateAccessAndRefreshTokens = async function(userId) {
@@ -289,6 +290,11 @@ const updateUserAvatar = asyncHandler(async(req, res) => {
         {new: true}
     ).select("-password");
 
+    if(user) {
+        const response = await deleteFromCloudinary(req.user.avatar);
+        if(!response) throw new ApiError(500, "Error while deleting the file.");
+    }
+
     return res
     .status(200)
     .json(
@@ -318,6 +324,11 @@ const updateUserCoverImage = asyncHandler(async(req, res) => {
         }, 
         {new: true}
     ).select("-password");
+
+    if(user) {
+        const response = await deleteFromCloudinary(req.user.coverImage);
+        if(!response) throw new ApiError(500, "Error while deleting the file.");
+    }
 
     return res
     .status(200)
@@ -399,7 +410,61 @@ const getUserChannelProfile = asyncHandler(async(req, res) => {
         new ApiResponse(200, channel[0], "User channel fetched successfuly.")
     );
     
-})
+});
+
+const getWatchHistory = asyncHandler(async (req, res) => {
+    const user = await User.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.user._id)
+            }
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        fullName: 1,
+                                        username: 1,
+                                        avatar: 1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields: {
+                            owner: {
+                                $first: "$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ]);
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse (
+            200,
+            user[0].watchHistory,
+            "Watch History fetched successfully."
+        )
+    );``
+});
 
 export {
     registerUser,
@@ -411,5 +476,6 @@ export {
     updateAccountDetails,
     updateUserAvatar,
     updateUserCoverImage,
-    getUserChannelProfile
+    getUserChannelProfile,
+    getWatchHistory
 };
