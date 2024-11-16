@@ -1,7 +1,7 @@
 import { v2 as cloudinary } from 'cloudinary';
 import fs from "fs";
 import { extractPublicId } from 'cloudinary-build-url';
-import { ApiError } from './ApiError';
+import { ApiError } from './ApiError.js';
 
 // Configuration
 cloudinary.config({ 
