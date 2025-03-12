@@ -1,3 +1,3 @@
 # Backend Project
 
-This is backend project for music application.
+This is backend project for video application.
